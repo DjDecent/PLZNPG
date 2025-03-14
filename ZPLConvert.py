@@ -14,10 +14,12 @@ def parse_zpl(zpl_data):
         'current_font_size': 12,
         'reverse_field': False,
         'current_font_bold': False,
+        'current_rotation': 0,  # Add rotation state (0, 90, 180, 270 degrees)
         'expecting_barcode': False,
         'barcode_type': None,
         'barcode_height': None,
         'barcode_width': None,
+        'barcode_width_ratio': 3.0,
     }
 
     def handle_bc(parts):
@@ -48,7 +50,8 @@ def parse_zpl(zpl_data):
                     width = state['barcode_width']
                     height = state['barcode_height']
                 else:
-                    width = state.get('barcode_width', 100)
+                    # Use original width without extra scaling factors
+                    width = state.get('barcode_width', 700)
                     height = state.get('barcode_height', 100)
                 
                 barcode_element = BarcodeElement(
@@ -58,7 +61,8 @@ def parse_zpl(zpl_data):
                     width=width,
                     height=height,
                     barcode_type=state['barcode_type'],
-                    quality=state.get('barcode_quality', 200)
+                    quality=state.get('barcode_quality', 200),
+                    width_ratio=state.get('barcode_width_ratio', 3.0)
                 )
                 label.add_element(barcode_element)
                 print(f"Added barcode element: {barcode_element}")
@@ -70,7 +74,8 @@ def parse_zpl(zpl_data):
                     data,
                     font_size=state.get('current_font_size', 12),
                     bold=state.get('current_font_bold', False),
-                    reverse=state.get('reverse_field', False)
+                    reverse=state.get('reverse_field', False),
+                    rotation=state.get('current_rotation', 0)  # Pass rotation to TextElement
                 )
                 label.add_element(text_element)
                 print(f"Added text element: {text_element}")
@@ -129,12 +134,28 @@ def parse_zpl(zpl_data):
             print(f"Insufficient parameters for GB command. Expected at least 3, got {len(parts)}")
 
     def handle_by(parts):
-        if parts and parts[0] == '7':
-            state['current_barcode_type'] = 'gs1-128'
-            print("Set barcode type to GS1-128")
+        if len(parts) >= 3:
+            # Module width in dots (1-10)
+            module_width = int(parts[0]) if parts[0].isdigit() else 2
+            
+            # Width ratio between wide and narrow bars (2.0-3.0)
+            width_ratio = float(parts[1]) if parts[1].replace('.', '', 1).isdigit() else 3.0
+            
+            # Barcode height in dots
+            barcode_height = int(parts[2]) if parts[2].isdigit() else 10
+            
+            # Width calculation more directly based on the spec
+            barcode_width = 700  # Default width that worked well previously
+            
+            state['barcode_width'] = barcode_width
+            state['barcode_width_ratio'] = width_ratio
+            state['barcode_height'] = barcode_height
+            print(f"Set barcode defaults: width={state['barcode_width']}, width_ratio={state['barcode_width_ratio']}, height={state['barcode_height']}")
         else:
-            state['current_barcode_type'] = 'code128'
-            print("Set barcode type to Code 128")
+            state['barcode_width'] = 700
+            state['barcode_width_ratio'] = 3.0
+            state['barcode_height'] = 10
+            print("Set barcode defaults to default values")
 
     def handle_cf(parts):
         if len(parts) >= 2:
@@ -192,13 +213,25 @@ def parse_zpl(zpl_data):
             # Determine if the font should be bold
             is_bold = font_name in ['0', '2', '4', '6', '8']
             
-            # Set font size (you may need to adjust this calculation)
+            # Use original font size calculation that worked previously
             font_size = max(int(font_height), 12)  # Ensure minimum font size of 12
+            
+            # Handle font rotation if present in the command
+            # Default rotation is 'N' (normal/0 degrees)
+            rotation_code = 'N'
+            if len(parts) >= 4 and parts[3]:
+                rotation_code = parts[3]
+                
+            # Map ZPL rotation codes to degrees
+            # N = normal (0°), R = 90° clockwise, I = 180° (inverted), B = 270° clockwise
+            rotation_map = {'N': 0, 'R': 90, 'I': 180, 'B': 270}
+            rotation = rotation_map.get(rotation_code, 0)
+            state['current_rotation'] = rotation
             
             state['current_font_size'] = font_size
             state['current_font_bold'] = is_bold
             
-            print(f"Font set: size={font_size}, bold={is_bold}")
+            print(f"Font set: size={font_size}, bold={is_bold}, rotation={state['current_rotation']} (code={rotation_code})")
         else:
             print("Insufficient parameters for A0 command")
 
@@ -303,5 +336,5 @@ def main():
 if __name__ == "__main__":
     main()
 
-    
+
 

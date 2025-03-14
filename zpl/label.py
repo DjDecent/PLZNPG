@@ -1,6 +1,5 @@
 from PIL import Image, ImageDraw
-from zpl.elements import LineElement, BoxElement  # Add this import at the top of the file
-  # Add this import at the top of the file
+from zpl.elements import LineElement, BoxElement, TextElement, BarcodeElement, ImageElement  # Add missing imports
 
 class Label:
     def __init__(self, width=400, height=600):  # Adjust default size as needed

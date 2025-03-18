@@ -139,13 +139,16 @@ class BoxElement(BaseElement):
         return self.__str__()
 
 class BarcodeElement(BaseElement):
-    def __init__(self, x, y, data, width, height, barcode_type='code128', quality=200):
+    """Element for rendering barcodes on labels."""
+    
+    def __init__(self, x, y, data, width=300, height=100, barcode_type='code128', quality=200, width_ratio=3.0):
         super().__init__(x, y)
         self.data = data
         self.width = width
         self.height = height
         self.barcode_type = barcode_type
         self.quality = quality
+        self.width_ratio = width_ratio
 
     # Define a set of known GS1 Application Identifiers
     GS1_AIS = {

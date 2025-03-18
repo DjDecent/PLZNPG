@@ -39,40 +39,74 @@ class BaseElement:
     def draw(self, draw):
         pass
 
+"""Text element classes for ZPL conversion."""
+
+import os
+from PIL import Image, ImageFont, ImageDraw
+from .base import BaseElement
+
 class TextElement(BaseElement):
-    def __init__(self, x, y, text, font_size=12, bold=False, reverse=False):
+    """Element for rendering text on labels."""
+    
+    def __init__(self, x, y, text, font_size=12, bold=False, reverse=False, rotation=0):
         super().__init__(x, y)
         self.text = text
         self.font_size = font_size
         self.bold = bold
         self.reverse = reverse
+        self.rotation = rotation
         self.font_path = self._get_font_path()
 
     def _get_font_path(self):
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         font_name = "RobotoCondensed-Bold.ttf" if self.bold else "RobotoCondensed-Regular.ttf"
         font_path = os.path.join(base_dir, "fonts", font_name)
-        print(f"Font path: {font_path}")
         return font_path
 
     def draw(self, draw):
         try:
             font = ImageFont.truetype(self.font_path, self.font_size)
+            text_color = (255, 255, 255) if self.reverse else (0, 0, 0)
             
-            # Debug print
-            print(f"Drawing text: '{self.text}', reverse={self.reverse}, font_size={self.font_size}")
-
-            text_color = (255, 255, 255) if self.reverse else (0, 0, 0)  # White if reversed, else black
-            
-            # Use textbbox to get the text dimensions
-            bbox = draw.textbbox((self.x, self.y), self.text, font=font)
+            # Get text dimensions using textbbox
+            bbox = draw.textbbox((0, 0), self.text, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             
-            # Draw text using textbbox
-            draw.text((self.x, self.y), self.text, font=font, fill=text_color, anchor="lt")
+            # Draw according to rotation
+            if self.rotation == 0:
+                # Standard orientation
+                draw.text((self.x, self.y), self.text, font=font, fill=text_color, anchor="lt")
             
-            print(f"Drew text: {self.text} at ({self.x}, {self.y}), color={text_color}, size=({text_width}, {text_height})")
+            elif self.rotation == 90:
+                # Rotate 90 degrees (clockwise)
+                temp_img = Image.new('RGBA', (text_height + 10, text_width + 10), (255, 255, 255, 0))
+                temp_draw = ImageDraw.Draw(temp_img)
+                temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
+                              font=font, fill=text_color, anchor="mm")
+                rotated = temp_img.rotate(90, expand=True, resample=Image.BICUBIC)
+                draw._image.paste(rotated, (self.x, self.y), rotated)
+            
+            elif self.rotation == 180:
+                # Rotate 180 degrees
+                temp_img = Image.new('RGBA', (text_width + 10, text_height + 10), (255, 255, 255, 0))
+                temp_draw = ImageDraw.Draw(temp_img)
+                temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
+                              font=font, fill=text_color, anchor="mm")
+                rotated = temp_img.rotate(180, expand=True, resample=Image.BICUBIC)
+                draw._image.paste(rotated, (self.x - 5, self.y - 5), rotated)
+            
+            elif self.rotation == 270:
+                # Rotate 270 degrees (counter-clockwise)
+                temp_img = Image.new('RGBA', (text_height + 10, text_width + 10), (255, 255, 255, 0))
+                temp_draw = ImageDraw.Draw(temp_img)
+                temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
+                              font=font, fill=text_color, anchor="mm")
+                rotated = temp_img.rotate(270, expand=True, resample=Image.BICUBIC)
+                draw._image.paste(rotated, (self.x - text_height, self.y), rotated)
+            
+            print(f"Drew text: '{self.text}' at ({self.x}, {self.y}) with rotation {self.rotation}°")
+                
         except Exception as e:
             print(f"Error drawing TextElement: {str(e)}")
             import traceback
@@ -202,9 +236,9 @@ class BarcodeElement(BaseElement):
                 # Existing logic for other barcode types
                 actual_type = 'gs1-128' if self.data.startswith('>;') and self.data.endswith('>;') else self.barcode_type
                 
-                if actual_type == 'gs1-128':
+                if (actual_type == 'gs1-128'):
                     barcode_image = self._generate_gs1_128()
-                elif actual_type == 'datamatrix':
+                elif (actual_type == 'datamatrix'):
                     barcode_image = self._generate_datamatrix()
                 else:  # Default to Code 128
                     barcode_image = self._generate_code_128()

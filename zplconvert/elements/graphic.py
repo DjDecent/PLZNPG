@@ -1,12 +1,10 @@
+"""Graphic element classes for ZPL conversion."""
+
 import os
 import math
 from io import BytesIO
-from PIL import Image, ImageFont, ImageDraw, ImageOps, ImageColor, ImageFilter
-from barcode import Code128
-from barcode.writer import ImageWriter
-from barcode.charsets import code128
-from pystrich.code128 import Code128Encoder
-from pystrich.datamatrix import DataMatrixEncoder
+from PIL import Image, ImageDraw, ImageFont
+from .base import BaseElement
 
 class Text:
     def __init__(self, x, y, text, font_size=12, font=None):
@@ -30,14 +28,6 @@ class Barcode:
         # Placeholder for barcode drawing logic
         draw.rectangle([self.x, self.y, self.x + 100, self.y + 50], outline="black")
         draw.text((self.x, self.y + 60), f"Barcode: {self.data}", fill="black")
-
-class BaseElement:
-    def __init__(self, x=0, y=0):
-        self.x = x
-        self.y = y
-
-    def draw(self, draw):
-        pass
 
 class TextElement(BaseElement):
     def __init__(self, x, y, text, font_size=12, bold=False, reverse=False):
@@ -79,13 +69,15 @@ class TextElement(BaseElement):
             traceback.print_exc()
 
 class LineElement(BaseElement):
-    def __init__(self, x, y, width, height, thickness, line_color, reverse=False):
+    """Element for rendering lines on labels."""
+    
+    def __init__(self, x, y, width, height, thickness=1, line_color=(0, 0, 0), reverse=False):
         super().__init__(x, y)
         self.width = width
         self.height = height
         self.thickness = thickness
         self.line_color = line_color
-        self.reverse = reverse  # Add reverse attribute
+        self.reverse = reverse
 
     def draw(self, draw):
         # Apply reverse effect to line color if needed
@@ -106,6 +98,8 @@ class LineElement(BaseElement):
         return f"LineElement(x={self.x}, y={self.y}, width={self.width}, height={self.height}, thickness={self.thickness}, line_color={self.line_color}, reverse={self.reverse})"
 
 class BoxElement(BaseElement):
+    """Element for rendering boxes on labels."""
+    
     def __init__(self, x, y, width, height, thickness=1, line_color=(0, 0, 0), fill_color=None, reverse=False):
         super().__init__(x, y)
         self.width = max(width, 1)  # Ensure minimum width of 1
@@ -264,6 +258,8 @@ class BarcodeElement(BaseElement):
         return Image.open(BytesIO(png_data))
 
 class LogoElement(BaseElement):
+    """Element for rendering logo images on labels."""
+    
     def __init__(self, x, y, image_path, width=None, height=None):
         super().__init__(x, y)
         self.image_path = image_path
@@ -287,10 +283,11 @@ class LogoElement(BaseElement):
             draw.rectangle([self.x, self.y, self.x + self.width, self.y + self.height], outline="red")
             draw.text((self.x + 5, self.y + self.height // 2), "Error", fill="red")
 
-class ImageElement:
-    def __init__(self, x, y, width, height, image_data, format):
-        self.x = x
-        self.y = y
+class ImageElement(BaseElement):
+    """Element for rendering bitmap images on labels."""
+    
+    def __init__(self, x, y, width, height, image_data, format='A'):
+        super().__init__(x, y)
         self.width = width
         self.height = height
         self.image_data = image_data

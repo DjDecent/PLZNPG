@@ -35,6 +35,59 @@
         #imageContainer {
             margin-top: 20px;
         }
+        #logOutput {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f8f8f8;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .performance {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #2a5885;
+        }
+        
+        /* Add styles for loading indicator */
+        .loading-spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4CAF50;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Optimize image loading */
+        #imageContainer img {
+            display: block;
+            max-width: 100%;
+            border: 1px solid #ddd;
+        }
+        
+        /* Make buttons more responsive */
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .optimize-toggle {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -84,51 +137,142 @@
 
 ^XZ</textarea>
     
-    <button onclick="convertZpl()">Convert</button>
-    <button onclick="testServer()">Test Server</button>
+    <div class="button-container">
+        <button onclick="convertZpl(false)">Convert</button>
+        <button onclick="testServer()">Test Server</button>
+        <button onclick="convertZpl(true)">Serve From Cache</button>
+        <div class="optimize-toggle">
+            <input type="checkbox" id="optimizeToggle" checked>
+            <label for="optimizeToggle">Optimize conversion</label>
+        </div>
+    </div>
     
     <div id="result">Results will appear here.</div>
     
     <div id="imageContainer"></div>
     
+    <h3>Log Output</h3>
+    <div id="logOutput">Logs will appear here when conversion is performed.</div>
+    
     <script>
-        function convertZpl() {
+        // Cache for recently converted ZPL code
+        const zplCache = {};
+        
+        async function convertZpl(fastMode = false) {
             const zplData = document.getElementById('zplInput').value;
             const resultDiv = document.getElementById('result');
+            const logOutput = document.getElementById('logOutput');
+            const optimize = document.getElementById('optimizeToggle').checked;
+            const startTime = performance.now();
             
-            resultDiv.innerHTML = 'Converting...';
+            // Show loading indicator
+            resultDiv.innerHTML = '<div class="loading-spinner"></div> Converting...';
+            logOutput.innerHTML = 'Starting conversion...';
             
-            fetch('/convert', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ zpl: zplData })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
+            try {
+                // Check cache for exact matches to avoid unnecessary server calls
+                const cacheKey = fastMode ? btoa(zplData).substring(0, 20) : null;
+                if (fastMode && zplCache[cacheKey]) {
+                    const cachedData = zplCache[cacheKey];
+                    displayResults(cachedData, startTime);
+                    logOutput.innerHTML += '\n(Served from browser cache)';
+                    return;
                 }
-                return response.json();
-            })
-            .then(data => {
-                resultDiv.innerHTML = `Conversion successful! Image saved as: ${data.image_path}`;
                 
-                // Display the image
-                const imageContainer = document.getElementById('imageContainer');
-                const timestamp = new Date().getTime(); // Add timestamp to prevent caching
-                imageContainer.innerHTML = `<img src="/${data.image_path}?t=${timestamp}" alt="Converted ZPL" style="max-width:100%; border:1px solid #ddd;">`;
-            })
-            .catch(error => {
+                // Prepare request data
+                const requestData = { 
+                    zpl: zplData,
+                    optimize: optimize
+                };
+                
+                if (fastMode) {
+                    requestData.cache_key = cacheKey;
+                }
+                
+                // Use fetch API with AbortController for timeout handling
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+                
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Cache the result if in fast mode
+                if (fastMode && cacheKey) {
+                    zplCache[cacheKey] = data;
+                }
+                
+                displayResults(data, startTime);
+                
+            } catch (error) {
                 resultDiv.innerHTML = `Error: ${error.message}`;
+                logOutput.innerHTML = `Error occurred: ${error.message}`;
                 console.error('Error:', error);
-            });
+            }
+        }
+        
+        function displayResults(data, startTime) {
+            const resultDiv = document.getElementById('result');
+            const logOutput = document.getElementById('logOutput');
+            const imageContainer = document.getElementById('imageContainer');
+            const endTime = performance.now();
+            const conversionTime = (endTime - startTime).toFixed(2);
+            
+            resultDiv.innerHTML = `Conversion successful! Image saved as: ${data.image_path}`;
+            
+            // Preload image before displaying
+            const img = new Image();
+            const timestamp = new Date().getTime();
+            img.onload = function() {
+                imageContainer.innerHTML = '';
+                imageContainer.appendChild(img);
+            };
+            img.src = `/${data.image_path}?t=${timestamp}`;
+            img.alt = "Converted ZPL";
+            img.style.maxWidth = "100%";
+            img.style.border = "1px solid #ddd";
+            
+            // Display logs and performance info
+            let logContent = data.logs ? data.logs : 'No logs provided by server';
+            logOutput.innerHTML = logContent;
+            
+            // Network latency calculation
+            const serverTime = data.processing_time || 0;
+            const networkTime = conversionTime - serverTime;
+            
+            logOutput.innerHTML += `\n\n<div class="performance">Conversion completed in ${conversionTime}ms</div>`;
+            
+            if (data.processing_time) {
+                logOutput.innerHTML += `\n<div class="performance">Server processing time: ${data.processing_time}ms</div>`;
+                logOutput.innerHTML += `\n<div class="performance">Network/browser time: ${networkTime.toFixed(2)}ms</div>`;
+            }
+            
+            if (data.optimized) {
+                logOutput.innerHTML += `\n<div class="performance">Optimized rendering enabled</div>`;
+            }
+            
+            if (data.cached) {
+                logOutput.innerHTML += `\n<div class="performance">Served from server cache</div>`;
+            }
         }
         
         function testServer() {
             const resultDiv = document.getElementById('result');
+            const logOutput = document.getElementById('logOutput');
             
             resultDiv.innerHTML = 'Testing server...';
+            logOutput.innerHTML = 'Running server test...';
             
             fetch('/test', {
                 method: 'GET'
@@ -136,11 +280,30 @@
             .then(response => response.json())
             .then(data => {
                 resultDiv.innerHTML = `Server test result: ${data.message}`;
+                if (data.logs) {
+                    logOutput.innerHTML = data.logs;
+                } else {
+                    logOutput.innerHTML = 'Test completed successfully. No logs provided.';
+                }
             })
             .catch(error => {
                 resultDiv.innerHTML = `Error: ${error.message}`;
+                logOutput.innerHTML = `Error during server test: ${error.message}`;
                 console.error('Error:', error);
             });
+        }
+        
+        // Debounce helper function to avoid excessive API calls
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
         }
     </script>
 </body>

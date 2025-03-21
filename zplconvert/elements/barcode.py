@@ -68,7 +68,7 @@ class BarcodeElement(BaseElement):
         try:
             if self.barcode_type == 'datamatrix':
                 img = self._generate_datamatrix()
-                adjusted_y = self.y + self.height - img.height
+                adjusted_y = self.y - (self.height - img.height)
                 draw._image.paste(img, (self.x, adjusted_y))
             else:
                 # Existing logic for other barcode types

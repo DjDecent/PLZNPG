@@ -19,7 +19,8 @@ def handle_fd(params, state, label):
         data,
         font_size=state.get('current_font_size', 12),
         bold=state.get('current_font_bold', False),
-        reverse=state.get('reverse_field', False)
+        reverse=state.get('reverse_field', False),
+        rotation=state.get('current_rotation', 0)  # Pass the current rotation
     )
     label.add_element(text_element)
     print(f"Added text: '{data}' at ({state['current_x']}, {state['current_y']})")
@@ -48,18 +49,39 @@ def handle_fr(params, state, label):
 def handle_a0(params, state, label):
     """Handle A0 (Font) command."""
     if len(params) >= 3:
-        font_name, font_width, font_height = params[:3]
+        # Parse the font specifier which may include orientation
+        font_specifier = params[0]
+        font_width, font_height = params[1:3]
         
-        # Determine if the font should be bold
-        is_bold = font_name in ['0', '2', '4', '6', '8']
+        # Extract the orientation code (N, R, I, B) from the font specifier
+        orientation = 'N'  # Default to normal orientation
+        if len(font_specifier) > 0:
+            orientation = font_specifier[-1]  # Last character is orientation
         
-        # Use original font size calculation that worked previously
-        font_size = max(int(font_height), 12)  # Ensure minimum font size of 12
+        # Set rotation based on orientation
+        if orientation == 'N':
+            state['current_rotation'] = 0  # Normal
+        elif orientation == 'R':
+            state['current_rotation'] = 90  # Rotated 90° clockwise
+        elif orientation == 'I':
+            state['current_rotation'] = 180  # Inverted (180°)
+        elif orientation == 'B':
+            state['current_rotation'] = 270  # Bottom up (270°)
+        
+        # Determine if the font should be bold (based on the font number)
+        is_bold = False
+        if len(font_specifier) > 0 and font_specifier[0] in ['0', '2', '4', '6', '8']:
+            is_bold = True
+        
+        # Set font size (ensure minimum font size of 12)
+        font_size = max(int(font_height), 12)
         
         state['current_font_size'] = font_size
         state['current_font_bold'] = is_bold
         
-        print(f"Font set: size={font_size}, bold={is_bold}")
+        print(f"Font set: size={font_size}, bold={is_bold}, rotation={state['current_rotation']}°")
+    else:
+        print("Insufficient parameters for A0 command")
 
 def handle_cf(params, state, label):
     """Handle CF (Change Font) command."""

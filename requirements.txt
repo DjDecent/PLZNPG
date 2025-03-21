@@ -4,3 +4,4 @@ pystrich
 Flask
 flask-cors
 gunicorn
+psutil

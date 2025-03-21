@@ -61,6 +61,9 @@ class TextElement(BaseElement):
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             
+            # Add padding to avoid text cutoff
+            padding = max(10, self.font_size // 2)
+            
             # Draw according to rotation
             if self.rotation == 0:
                 # Standard orientation
@@ -68,33 +71,39 @@ class TextElement(BaseElement):
             
             elif self.rotation == 90:
                 # Rotate 90 degrees (clockwise)
-                temp_img = Image.new('RGBA', (text_height + 10, text_width + 10), (255, 255, 255, 0))
+                # Create larger temp image with proper padding
+                temp_img = Image.new('RGBA', (text_height + padding*2, text_width + padding*2), (255, 255, 255, 0))
                 temp_draw = ImageDraw.Draw(temp_img)
+                
+                # Draw text in the center of the temp image
                 temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
                               font=font, fill=text_color, anchor="mm")
-                rotated = temp_img.rotate(90, expand=True, resample=Image.BICUBIC)
-                draw._image.paste(rotated, (self.x, self.y), rotated)
+                
+                # Rotate clockwise (270 degrees counter-clockwise is actually 90 degrees clockwise)
+                rotated = temp_img.rotate(270, expand=True, resample=Image.BICUBIC)
+                
+                # Adjust position to maintain alignment with original position - moved to the left
+                draw._image.paste(rotated, (self.x - padding, self.y - padding), rotated)
             
             elif self.rotation == 180:
                 # Rotate 180 degrees
-                temp_img = Image.new('RGBA', (text_width + 10, text_height + 10), (255, 255, 255, 0))
+                temp_img = Image.new('RGBA', (text_width + padding*2, text_height + padding*2), (255, 255, 255, 0))
                 temp_draw = ImageDraw.Draw(temp_img)
                 temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
                               font=font, fill=text_color, anchor="mm")
                 rotated = temp_img.rotate(180, expand=True, resample=Image.BICUBIC)
-                draw._image.paste(rotated, (self.x - 5, self.y - 5), rotated)
+                draw._image.paste(rotated, (self.x - padding, self.y - padding), rotated)
             
             elif self.rotation == 270:
                 # Rotate 270 degrees (counter-clockwise)
-                temp_img = Image.new('RGBA', (text_height + 10, text_width + 10), (255, 255, 255, 0))
+                temp_img = Image.new('RGBA', (text_height + padding * 2, text_width + padding * 2), (255, 255, 255, 0))
                 temp_draw = ImageDraw.Draw(temp_img)
                 temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
-                              font=font, fill=text_color, anchor="mm")
-                rotated = temp_img.rotate(270, expand=True, resample=Image.BICUBIC)
-                draw._image.paste(rotated, (self.x - text_height, self.y), rotated)
-            
-            print(f"Drew text: '{self.text}' at ({self.x}, {self.y}) with rotation {self.rotation}°")
-                
+                               font=font, fill=text_color, anchor="mm")
+                rotated = temp_img.rotate(90, expand=True, resample=Image.BICUBIC)
+                draw._image.paste(rotated, (self.x - padding, self.y - padding), rotated)
+                print(f"Drew text: '{self.text}' at ({self.x}, {self.y}) with rotation {self.rotation}°")
+                print(f"Drew text: '{self.text}' at ({self.x}, {self.y}) with rotation {self.rotation}°")
         except Exception as e:
             print(f"Error drawing TextElement: {str(e)}")
             import traceback

@@ -1,1 +1,1 @@
-web: gunicorn -b 0.0.0.0:$PORT render_app:app
+web: gunicorn -b 0.0.0.0:$PORT examples.web_server:app

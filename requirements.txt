@@ -1,1 +1,6 @@
-pip install Pillow python-barcode pystrich
+Pillow
+python-barcode
+pystrich
+Flask
+flask-cors
+gunicorn

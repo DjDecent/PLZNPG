@@ -40,13 +40,12 @@ class BaseElement:
         pass
 
 class TextElement(BaseElement):
-    def __init__(self, x, y, text, font_size=12, bold=False, reverse=False, rotation=0):
+    def __init__(self, x, y, text, font_size=12, bold=False, reverse=False):
         super().__init__(x, y)
         self.text = text
         self.font_size = font_size
         self.bold = bold
         self.reverse = reverse
-        self.rotation = rotation  # 0, 90, 180, or 270 degrees
         self.font_path = self._get_font_path()
 
     def _get_font_path(self):
@@ -60,68 +59,20 @@ class TextElement(BaseElement):
         try:
             font = ImageFont.truetype(self.font_path, self.font_size)
             
-            print(f"Drawing text: '{self.text}', reverse={self.reverse}, font_size={self.font_size}, rotation={self.rotation}")
+            # Debug print
+            print(f"Drawing text: '{self.text}', reverse={self.reverse}, font_size={self.font_size}")
 
             text_color = (255, 255, 255) if self.reverse else (0, 0, 0)  # White if reversed, else black
             
-            # Get text dimensions using textbbox
-            bbox = draw.textbbox((0, 0), self.text, font=font)
+            # Use textbbox to get the text dimensions
+            bbox = draw.textbbox((self.x, self.y), self.text, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             
-            # Improved rotation handling with better positioning
-            if self.rotation == 0:
-                draw.text((self.x, self.y), self.text, font=font, fill=text_color, anchor="lt")
-            elif self.rotation == 90:
-                # Create transparent image for rotation
-                temp_img = Image.new('RGBA', (text_height + 10, text_width + 10), (255, 255, 255, 0))
-                temp_draw = ImageDraw.Draw(temp_img)
-                
-                # Draw text centered on temporary image
-                temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
-                              font=font, fill=text_color, anchor="mm")
-                
-                # Rotate the image
-                rotated = temp_img.rotate(90, expand=True, resample=Image.BICUBIC)
-                
-                # Calculate correct position for paste
-                paste_x = self.x
-                paste_y = self.y
-                
-                # Paste rotated text
-                draw._image.paste(rotated, (paste_x, paste_y), rotated)
-                
-            elif self.rotation == 180:
-                # Create temp image with padding
-                temp_img = Image.new('RGBA', (text_width + 10, text_height + 10), (255, 255, 255, 0))
-                temp_draw = ImageDraw.Draw(temp_img)
-                
-                # Draw text centered
-                temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
-                              font=font, fill=text_color, anchor="mm")
-                
-                # Rotate
-                rotated = temp_img.rotate(180, expand=True, resample=Image.BICUBIC)
-                
-                # Paste at original position
-                draw._image.paste(rotated, (self.x - 5, self.y - 5), rotated)
-                
-            elif self.rotation == 270:
-                # Create temp image
-                temp_img = Image.new('RGBA', (text_height + 10, text_width + 10), (255, 255, 255, 0))
-                temp_draw = ImageDraw.Draw(temp_img)
-                
-                # Draw text centered
-                temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
-                              font=font, fill=text_color, anchor="mm")
-                
-                # Rotate
-                rotated = temp_img.rotate(270, expand=True, resample=Image.BICUBIC)
-                
-                # Paste at position with adjustment for rotation
-                draw._image.paste(rotated, (self.x - text_height, self.y), rotated)
+            # Draw text using textbbox
+            draw.text((self.x, self.y), self.text, font=font, fill=text_color, anchor="lt")
             
-            print(f"Drew text: {self.text} at ({self.x}, {self.y}), color={text_color}, size=({text_width}, {text_height}), rotation={self.rotation}")
+            print(f"Drew text: {self.text} at ({self.x}, {self.y}), color={text_color}, size=({text_width}, {text_height})")
         except Exception as e:
             print(f"Error drawing TextElement: {str(e)}")
             import traceback
@@ -188,14 +139,13 @@ class BoxElement(BaseElement):
         return self.__str__()
 
 class BarcodeElement(BaseElement):
-    def __init__(self, x, y, data, width, height, barcode_type='code128', quality=200, width_ratio=3.0):
+    def __init__(self, x, y, data, width, height, barcode_type='code128', quality=200):
         super().__init__(x, y)
         self.data = data
         self.width = width
         self.height = height
         self.barcode_type = barcode_type
         self.quality = quality
-        self.width_ratio = width_ratio
 
     # Define a set of known GS1 Application Identifiers
     GS1_AIS = {
@@ -249,7 +199,7 @@ class BarcodeElement(BaseElement):
                 adjusted_y = self.y + self.height - img.height
                 draw._image.paste(img, (self.x, adjusted_y))
             else:
-                # Generate appropriate barcode
+                # Existing logic for other barcode types
                 actual_type = 'gs1-128' if self.data.startswith('>;') and self.data.endswith('>;') else self.barcode_type
                 
                 if actual_type == 'gs1-128':
@@ -258,11 +208,10 @@ class BarcodeElement(BaseElement):
                     barcode_image = self._generate_datamatrix()
                 else:  # Default to Code 128
                     barcode_image = self._generate_code_128()
-                
-                # Simple resize to maintain barcode proportions
-                # Don't apply extra scaling factors that might distort the barcode
+
+                # Resize the barcode image
                 barcode_image = barcode_image.resize((self.width, self.height), Image.NEAREST)
-                
+
                 # Paste the barcode onto the label
                 draw._image.paste(barcode_image, (self.x, self.y))
 
@@ -273,42 +222,45 @@ class BarcodeElement(BaseElement):
             traceback.print_exc()
 
     def _generate_code_128(self):
-        # Use simpler options without module_width calculation that might distort barcode
-        options = {
-            'show_label': False,
-            'quiet_zone': 1
-        }
-        encoder = Code128Encoder(self.data, options=options)
+        encoder = Code128Encoder(self.data, options={'show_label': False})
         return self._encoder_to_image(encoder)
 
     def _generate_gs1_128(self):
         formatted_data = self._format_gs1_128_data(self.data)
         print("Raw data sent to encoder:")
-        print(' '.join(f'{ord(c):02X}' for c in formatted_data))
-        print(''.join(c if ord(c) >= 32 and ord(c) <= 126 else '.' for c in formatted_data))
+        print(' '.join(f'{ord(c):02X}' for c in formatted_data))  # Print hex values
+        print(''.join(c if ord(c) >= 32 and ord(c) <= 126 else '.' for c in formatted_data))  # Print ASCII
         encoder = Code128Encoder(formatted_data, options={'mode': 'C', 'show_label': False})
         return self._encoder_to_image(encoder)
 
     def _generate_datamatrix(self):
         try:
             if self.data.startswith('_1'):
+                # Remove the '_1' prefix before formatting
                 data_without_prefix = self.data[2:]
+                # Replace internal '_1' with FNC1 character (ASCII 29)
                 data_without_prefix = data_without_prefix.replace('_1', chr(29))
                 formatted_data = self._format_gs1_128_data(data_without_prefix)
+                # Remove the FNC1 character that _format_gs1_128_data adds at the start
                 formatted_data = formatted_data[1:]
+                # Add the GS1 FNC1 character (ASCII 232) at the start
                 gs1_data = chr(231) + formatted_data
             else:
                 gs1_data = self.data
             print(f"GS1 Data: {gs1_data}")
             encoder = DataMatrixEncoder(gs1_data)
-            module_size = math.ceil(self.quality / 25.4)
+            # Calculate the module size based on the quality (DPI)
+            module_size = math.ceil(self.quality / 25.4)  # Convert DPI to modules per mm
             return self._encoder_to_image(encoder)
         except Exception as e:
             print(f"Error generating GS1 DataMatrix: {str(e)}")
+            # Return a blank image in case of error
             return Image.new('RGB', (100, 100), color=(255, 255, 255))
 
     def _encoder_to_image(self, encoder):
+        # Get the PNG data as bytes
         png_data = encoder.get_imagedata()
+        # Create a PIL Image from the PNG data
         return Image.open(BytesIO(png_data))
 
 class LogoElement(BaseElement):

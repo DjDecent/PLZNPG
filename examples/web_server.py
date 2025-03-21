@@ -216,7 +216,7 @@ def test():
     print("Test endpoint was called")
     
     return jsonify({
-        'message': 'Test endpoint is working!',
+        'message': 'Shut up, the server is working!',
         'logs': logs.getvalue(),
         'processing_time': 0  # Zero indicates this is just a test
     })

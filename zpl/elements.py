@@ -19,18 +19,6 @@ class Text:
     def draw(self, draw: ImageDraw.Draw):
         draw.text((self.x, self.y), self.text, font=self.font, fill="black")
 
-class Barcode:
-    def __init__(self, x, y, data, barcode_type='code128'):
-        self.x = x
-        self.y = y
-        self.data = data
-        self.barcode_type = barcode_type
-
-    def draw(self, draw):
-        # Placeholder for barcode drawing logic
-        draw.rectangle([self.x, self.y, self.x + 100, self.y + 50], outline="black")
-        draw.text((self.x, self.y + 60), f"Barcode: {self.data}", fill="black")
-
 class BaseElement:
     def __init__(self, x=0, y=0):
         self.x = x
@@ -52,27 +40,60 @@ class TextElement(BaseElement):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         font_name = "RobotoCondensed-Bold.ttf" if self.bold else "RobotoCondensed-Regular.ttf"
         font_path = os.path.join(base_dir, "fonts", font_name)
-        print(f"Font path: {font_path}")
         return font_path
 
     def draw(self, draw):
         try:
             font = ImageFont.truetype(self.font_path, self.font_size)
+            text_color = (255, 255, 255) if self.reverse else (0, 0, 0)
             
-            # Debug print
-            print(f"Drawing text: '{self.text}', reverse={self.reverse}, font_size={self.font_size}")
-
-            text_color = (255, 255, 255) if self.reverse else (0, 0, 0)  # White if reversed, else black
-            
-            # Use textbbox to get the text dimensions
-            bbox = draw.textbbox((self.x, self.y), self.text, font=font)
+            # Get text dimensions using textbbox
+            bbox = draw.textbbox((0, 0), self.text, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
             
-            # Draw text using textbbox
-            draw.text((self.x, self.y), self.text, font=font, fill=text_color, anchor="lt")
+            # Add padding to avoid text cutoff
+            padding = max(10, self.font_size // 2)
             
-            print(f"Drew text: {self.text} at ({self.x}, {self.y}), color={text_color}, size=({text_width}, {text_height})")
+            # Draw according to rotation
+            if self.rotation == 0:
+                # Standard orientation
+                draw.text((self.x, self.y), self.text, font=font, fill=text_color, anchor="lt")
+            
+            elif self.rotation == 90:
+                # Rotate 90 degrees (clockwise)
+                # Create larger temp image with proper padding
+                temp_img = Image.new('RGBA', (text_height + padding*2, text_width + padding*2), (255, 255, 255, 0))
+                temp_draw = ImageDraw.Draw(temp_img)
+                
+                # Draw text in the center of the temp image
+                temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
+                              font=font, fill=text_color, anchor="mm")
+                
+                # Rotate clockwise (270 degrees counter-clockwise is actually 90 degrees clockwise)
+                rotated = temp_img.rotate(270, expand=True, resample=Image.BICUBIC)
+                
+                # Adjust position to maintain alignment with original position - moved to the left
+                draw._image.paste(rotated, (self.x - padding, self.y - padding), rotated)
+            
+            elif self.rotation == 180:
+                # Rotate 180 degrees
+                temp_img = Image.new('RGBA', (text_width + padding*2, text_height + padding*2), (255, 255, 255, 0))
+                temp_draw = ImageDraw.Draw(temp_img)
+                temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
+                              font=font, fill=text_color, anchor="mm")
+                rotated = temp_img.rotate(180, expand=True, resample=Image.BICUBIC)
+                draw._image.paste(rotated, (self.x - padding, self.y - padding), rotated)
+            
+            elif self.rotation == 270:
+                # Rotate 270 degrees (counter-clockwise)
+                temp_img = Image.new('RGBA', (text_height + padding * 2, text_width * padding * 2), (255, 255, 255, 0))
+                temp_draw = ImageDraw.Draw(temp_img)
+                temp_draw.text((temp_img.width // 2, temp_img.height // 2), self.text, 
+                               font=font, fill=text_color, anchor="mm")
+                rotated = temp_img.rotate(90, expand=True, resample=Image.BICUBIC)
+                draw._image.paste(rotated, (self.x - padding, self.y - padding), rotated)
+                print(f"Drew text: '{self.text}' at ({self.x}, {self.y}) with rotation {self.rotation}°")
         except Exception as e:
             print(f"Error drawing TextElement: {str(e)}")
             import traceback
@@ -85,7 +106,7 @@ class LineElement(BaseElement):
         self.height = height
         self.thickness = thickness
         self.line_color = line_color
-        self.reverse = reverse  # Add reverse attribute
+        self.reverse = reverse
 
     def draw(self, draw):
         # Apply reverse effect to line color if needed
@@ -128,7 +149,6 @@ class BoxElement(BaseElement):
             for i in range(self.thickness):
                 draw.rectangle([self.x + i, self.y + i, self.x + self.width - i, self.y + self.height - i], outline=self.line_color)
 
-            print(f"Drew BoxElement: {self}")
         except Exception as e:
             print(f"Error drawing BoxElement: {str(e)}")
 
@@ -184,7 +204,6 @@ class BarcodeElement(BaseElement):
                         value = subpart[len(ai):]
                         formatted_parts.append(f'({ai}){value}')
                     else:
-                        print(f"Warning: Unknown AI in part: {subpart}")
                         formatted_parts.append(subpart)
                 elif subpart:  # Only add non-empty subparts
                     formatted_parts.append(subpart)
@@ -196,7 +215,7 @@ class BarcodeElement(BaseElement):
         try:
             if self.barcode_type == 'datamatrix':
                 img = self._generate_datamatrix()
-                adjusted_y = self.y + self.height - img.height
+                adjusted_y = self.y - (self.height - img.height)
                 draw._image.paste(img, (self.x, adjusted_y))
             else:
                 # Existing logic for other barcode types
@@ -215,7 +234,6 @@ class BarcodeElement(BaseElement):
                 # Paste the barcode onto the label
                 draw._image.paste(barcode_image, (self.x, self.y))
 
-            print(f"Drew barcode: {self.data} at ({self.x}, {self.y}) with size {self.width}x{self.height}")
         except Exception as e:
             print(f"Error drawing BarcodeElement: {str(e)}")
             import traceback
@@ -227,9 +245,6 @@ class BarcodeElement(BaseElement):
 
     def _generate_gs1_128(self):
         formatted_data = self._format_gs1_128_data(self.data)
-        print("Raw data sent to encoder:")
-        print(' '.join(f'{ord(c):02X}' for c in formatted_data))  # Print hex values
-        print(''.join(c if ord(c) >= 32 and ord(c) <= 126 else '.' for c in formatted_data))  # Print ASCII
         encoder = Code128Encoder(formatted_data, options={'mode': 'C', 'show_label': False})
         return self._encoder_to_image(encoder)
 
@@ -247,7 +262,6 @@ class BarcodeElement(BaseElement):
                 gs1_data = chr(231) + formatted_data
             else:
                 gs1_data = self.data
-            print(f"GS1 Data: {gs1_data}")
             encoder = DataMatrixEncoder(gs1_data)
             # Calculate the module size based on the quality (DPI)
             module_size = math.ceil(self.quality / 25.4)  # Convert DPI to modules per mm
@@ -277,20 +291,17 @@ class LogoElement(BaseElement):
                 logo = logo.resize((self.width, self.height))
                 draw._image.paste(logo, (self.x, self.y))
             else:
-                print(f"Warning: Logo file not found: {self.image_path}")
                 # Draw a placeholder
                 draw.rectangle([self.x, self.y, self.x + self.width, self.y + self.height], outline="black")
                 draw.text((self.x + 5, self.y + self.height // 2), "Logo", fill="black")
         except Exception as e:
-            print(f"Error drawing logo: {str(e)}")
             # Draw an error placeholder
             draw.rectangle([self.x, self.y, self.x + self.width, self.y + self.height], outline="red")
             draw.text((self.x + 5, self.y + self.height // 2), "Error", fill="red")
 
-class ImageElement:
+class ImageElement(BaseElement):
     def __init__(self, x, y, width, height, image_data, format):
-        self.x = x
-        self.y = y
+        super().__init__(x, y)
         self.width = width
         self.height = height
         self.image_data = image_data
@@ -310,9 +321,7 @@ class ImageElement:
 
     def gfa_to_image(self):
         hex_data = self.ascii_to_hex(self.image_data)
-        print(f"Hex data:\n{hex_data}")
         binary_data = self.hex_to_binary(hex_data)
-        print(f"Binary data length: {len(binary_data)}")
         image = Image.new('1', (self.width, self.height))
         pixels = image.load()
 
@@ -355,7 +364,6 @@ class ImageElement:
             if padded_line:
                 hex_lines.append(padded_line)
 
-        print(f"ASCII to Hex conversion result:\n{hex_lines}")
         return '\n'.join(hex_lines)
 
     def pad_line(self, line):
@@ -364,16 +372,13 @@ class ImageElement:
         if len(line) > full_line_length:
             # If the line is too long, truncate it
             padded_line = line[:full_line_length]
-            print(f"Truncated line: {padded_line}")
             return padded_line
         elif len(line) < full_line_length:
             # If the line is too short, pad it with '0's
             padded_line = line.ljust(full_line_length, '0')
-            print(f"Padded line: {padded_line}")
             return padded_line
         else:
             # If the line is exactly the right length, return it as is
-            print(f"Exact length line: {line}")
             return line
 
     def hex_to_binary(self, hex_data):
@@ -387,21 +392,12 @@ class ImageElement:
         return binary_data
 
     def draw(self, draw):
-        print(f"Attempting to draw image: format={self.format}, width={self.width}, height={self.height}")
-        print(f"Image data length: {len(self.image_data)}")
-        
         if self.format == 'A':  # ASCII format
             try:
                 image = self.gfa_to_image()
                 draw._image.paste(image, (self.x, self.y))
-                print(f"Successfully drew image at ({self.x}, {self.y}), size {self.width}x{self.height}")
-                
-                # Save the image for debugging
-                image.save("debug_image.png")
-                print("Saved debug image as 'debug_image.png'")
             except Exception as e:
-                print(f"Error drawing ImageElement: {str(e)}")
                 import traceback
                 traceback.print_exc()
         else:
-            print(f"Unsupported image format: {self.format}")
+            pass

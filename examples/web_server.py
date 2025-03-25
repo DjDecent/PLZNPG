@@ -4,6 +4,7 @@ import sys
 import os
 import time
 import io
+import logging
 from contextlib import redirect_stdout, redirect_stderr
 
 # Add the project root directory to the Python path
@@ -15,6 +16,10 @@ from zplconvert import convert_zpl_to_image
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @app.route('/')
 def index():
@@ -37,9 +42,9 @@ def convert():
         log_output = io.StringIO()
         stderr_output = io.StringIO()
         
-        # Print some initial log messages to verify logging
-        print("Starting ZPL conversion process...")
-        print(f"ZPL data length: {len(zpl_data)} characters")
+        # Log some initial messages to verify logging
+        logger.info("Starting ZPL conversion process...")
+        logger.info(f"ZPL data length: {len(zpl_data)} characters")
         
         start_time = time.time()
         
@@ -47,11 +52,11 @@ def convert():
         with redirect_stdout(log_output), redirect_stderr(stderr_output):
             # Convert ZPL to an image with optimized parameters
             image = convert_zpl_to_image(zpl_data, optimize=True)
-            print("Conversion completed successfully")
+            logger.info("Conversion completed successfully")
             
         end_time = time.time()
         processing_time = round((end_time - start_time) * 1000, 2)  # Convert to milliseconds
-        print(f"Processing time: {processing_time}ms")
+        logger.info(f"Processing time: {processing_time}ms")
         
         # Use BytesIO to avoid disk I/O
         image_data = io.BytesIO()
@@ -61,7 +66,7 @@ def convert():
         # Save physical file with reduced quality for faster rendering
         image_path = 'output.png'
         image.save(image_path, optimize=True)
-        print(f"Image saved as {image_path}")
+        logger.info(f"Image saved as {image_path}")
         
         # Get captured logs (combine stdout and stderr)
         logs = log_output.getvalue()
@@ -88,8 +93,8 @@ def convert():
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"Error during conversion: {str(e)}")
-        print(error_details)
+        logger.error(f"Error during conversion: {str(e)}")
+        logger.error(error_details)
         return jsonify({
             'error': str(e),
             'details': error_details,
@@ -129,9 +134,9 @@ def cached_convert():
         log_output = io.StringIO()
         stderr_output = io.StringIO()
         
-        # Print some initial log messages to verify logging
-        print("Starting ZPL conversion process...")
-        print(f"ZPL data length: {len(zpl_data)} characters")
+        # Log some initial messages to verify logging
+        logger.info("Starting ZPL conversion process...")
+        logger.info(f"ZPL data length: {len(zpl_data)} characters")
         
         start_time = time.time()
         
@@ -139,11 +144,11 @@ def cached_convert():
         with redirect_stdout(log_output), redirect_stderr(stderr_output):
             # Convert ZPL to an image with optimized parameters
             image = convert_zpl_to_image(zpl_data, optimize=True)
-            print("Conversion completed successfully")
+            logger.info("Conversion completed successfully")
             
         end_time = time.time()
         processing_time = round((end_time - start_time) * 1000, 2)  # Convert to milliseconds
-        print(f"Processing time: {processing_time}ms")
+        logger.info(f"Processing time: {processing_time}ms")
         
         # Use BytesIO to avoid disk I/O
         image_data = io.BytesIO()
@@ -152,7 +157,7 @@ def cached_convert():
         
         # Save physical file with reduced quality for faster rendering
         image.save(cache_path, optimize=True)
-        print(f"Image saved as {cache_path}")
+        logger.info(f"Image saved as {cache_path}")
         
         # Get captured logs (combine stdout and stderr)
         logs = log_output.getvalue()
@@ -178,8 +183,8 @@ def cached_convert():
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"Error during conversion: {str(e)}")
-        print(error_details)
+        logger.error(f"Error during conversion: {str(e)}")
+        logger.error(error_details)
         return jsonify({
             'error': str(e),
             'details': error_details,
@@ -213,7 +218,7 @@ def test():
         logs.write("\n(Install psutil for additional system metrics)\n")
     
     # Test log capturing to verify it works
-    print("Test endpoint was called")
+    logger.info("Test endpoint was called")
     
     return jsonify({
         'message': 'Test endpoint is working!',

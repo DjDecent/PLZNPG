@@ -5,7 +5,6 @@ from ..elements.text import TextElement
 def handle_fd(params, state, label):
     """Handle FD (Field Data) command for text."""
     if not params:
-        print("No field data provided for FD command")
         return
         
     data = params[0]  # The entire field data
@@ -23,19 +22,16 @@ def handle_fd(params, state, label):
         rotation=state.get('current_rotation', 0)  # Pass the current rotation
     )
     label.add_element(text_element)
-    print(f"Added text: '{data}' at ({state['current_x']}, {state['current_y']})")
 
 def handle_fo(params, state, label):
     """Handle FO (Field Origin) command."""
     if len(params) == 2:
         state['current_x'], state['current_y'] = map(int, params)
-        print(f"Set position to ({state['current_x']}, {state['current_y']})")
 
 def handle_ft(params, state, label):
     """Handle FT (Field Typeset) command."""
     if len(params) == 2:
         state['current_x'], state['current_y'] = map(int, params)
-        print(f"Set position to ({state['current_x']}, {state['current_y']}) using FT")
 
 def handle_fs(params, state, label):
     """Handle FS (Field Separator) command."""
@@ -44,7 +40,6 @@ def handle_fs(params, state, label):
 def handle_fr(params, state, label):
     """Handle FR (Field Reverse) command."""
     state['reverse_field'] = True
-    print("Reverse Field mode activated")
 
 def handle_a0(params, state, label):
     """Handle A0 (Font) command."""
@@ -78,16 +73,11 @@ def handle_a0(params, state, label):
         
         state['current_font_size'] = font_size
         state['current_font_bold'] = is_bold
-        
-        print(f"Font set: size={font_size}, bold={is_bold}, rotation={state['current_rotation']}°")
-    else:
-        print("Insufficient parameters for A0 command")
 
 def handle_cf(params, state, label):
     """Handle CF (Change Font) command."""
     if len(params) >= 2:
         state['current_font_size'] = int(params[1])
-        print(f"Changed font size to {state['current_font_size']}")
 
 def register_text_commands(registry):
     """Register all text-related command handlers."""

@@ -3,8 +3,11 @@ from zpl.label import Label
 import os
 from PIL import Image
 import traceback
+import logging
 
-print("Script started")
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def parse_zpl(zpl_data):
     label = Label(850, 1200)  # Adjust size as needed
@@ -21,26 +24,26 @@ def parse_zpl(zpl_data):
     }
 
     def handle_bc(parts):
-        print(f"Handling BC command with parts: {parts}")
+        logger.info(f"Handling BC command with parts: {parts}")
         state['expecting_barcode'] = True
         state['barcode_type'] = 'code128'
         if parts:
             state['barcode_height'] = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 10
             state['barcode_width'] = 700  # Default width, adjust as needed
-        print(f"Expecting barcode: type={state['barcode_type']}, height={state['barcode_height']}")
+        logger.info(f"Expecting barcode: type={state['barcode_type']}, height={state['barcode_height']}")
 
     def handle_bx(parts):
-        print(f"Handling BX command with parts: {parts}")
+        logger.info(f"Handling BX command with parts: {parts}")
         state['expecting_barcode'] = True
         state['barcode_type'] = 'datamatrix'
         if len(parts) >= 5:
             state['barcode_height'] = int(parts[1]) if parts[1] else 10
             state['barcode_width'] = int(parts[3]) if parts[3] else 10
             state['barcode_quality'] = int(parts[4]) if parts[4] else 200
-        print(f"Expecting DataMatrix: height={state['barcode_height']}, width={state['barcode_width']}, quality={state['barcode_quality']}")
+        logger.info(f"Expecting DataMatrix: height={state['barcode_height']}, width={state['barcode_width']}, quality={state['barcode_quality']}")
 
     def handle_fd(parts):
-        print(f"Handling FD command with text: {parts}")
+        logger.info(f"Handling FD command with text: {parts}")
         if parts:
             data = parts[0]  # The entire field data, including any commas
             if state['expecting_barcode']:
@@ -61,7 +64,7 @@ def parse_zpl(zpl_data):
                     quality=state.get('barcode_quality', 200)
                 )
                 label.add_element(barcode_element)
-                print(f"Added barcode element: {barcode_element}")
+                logger.info(f"Added barcode element: {barcode_element}")
                 state['expecting_barcode'] = False
             else:
                 text_element = TextElement(
@@ -73,24 +76,24 @@ def parse_zpl(zpl_data):
                     reverse=state.get('reverse_field', False)
                 )
                 label.add_element(text_element)
-                print(f"Added text element: {text_element}")
+                logger.info(f"Added text element: {text_element}")
         else:
-            print("No field data provided for FD command")
+            logger.warning("No field data provided for FD command")
 
     def handle_fo(parts):
         if len(parts) == 2:
             state['current_x'], state['current_y'] = map(int, parts)
-            print(f"Set position to ({state['current_x']}, {state['current_y']})")
+            logger.info(f"Set position to ({state['current_x']}, {state['current_y']})")
 
     def handle_ft(parts):
         if len(parts) == 2:
             state['current_x'], state['current_y'] = map(int, parts)
-            print(f"Set position to ({state['current_x']}, {state['current_y']}) using FT")
+            logger.info(f"Set position to ({state['current_x']}, {state['current_y']}) using FT")
 
     def handle_gb(parts):
-        print("GB command received")
-        print(f"Received parts: {parts}")
-        print(f"Current reverse_field state: {state['reverse_field']}")
+        logger.info("GB command received")
+        logger.info(f"Received parts: {parts}")
+        logger.info(f"Current reverse_field state: {state['reverse_field']}")
         
         if len(parts) >= 3:
             width, height, thickness = map(int, parts[:3])
@@ -101,7 +104,7 @@ def parse_zpl(zpl_data):
             if len(parts) >= 5:
                 rounding = int(parts[4])  # Get the rounding parameter if provided
             
-            print(f"GB command: width={width}, height={height}, thickness={thickness}, color={color}, rounding={rounding}")
+            logger.info(f"GB command: width={width}, height={height}, thickness={thickness}, color={color}, rounding={rounding}")
             
             # Convert color to RGB
             rgb_color = (0, 0, 0) if color == 'B' else (255, 255, 255)
@@ -120,39 +123,39 @@ def parse_zpl(zpl_data):
                 reverse=state['reverse_field']
             )
             label.add_element(element)
-            print(f"Added element: {element}")
+            logger.info(f"Added element: {element}")
             
             # Turn off reverse field after use
             state['reverse_field'] = False
-            print("Reverse field turned off after element creation")
+            logger.info("Reverse field turned off after element creation")
         else:
-            print(f"Insufficient parameters for GB command. Expected at least 3, got {len(parts)}")
+            logger.warning(f"Insufficient parameters for GB command. Expected at least 3, got {len(parts)}")
 
     def handle_by(parts):
         if parts and parts[0] == '7':
             state['current_barcode_type'] = 'gs1-128'
-            print("Set barcode type to GS1-128")
+            logger.info("Set barcode type to GS1-128")
         else:
             state['current_barcode_type'] = 'code128'
-            print("Set barcode type to Code 128")
+            logger.info("Set barcode type to Code 128")
 
     def handle_cf(parts):
         if len(parts) >= 2:
             state['current_font_size'] = int(parts[1])
-            print(f"Changed font size to {state['current_font_size']}")
+            logger.info(f"Changed font size to {state['current_font_size']}")
 
     def handle_gf(parts):
-        print(f"Handling GF command")
-        print(f"Number of parts: {len(parts)}")
+        logger.info(f"Handling GF command")
+        logger.info(f"Number of parts: {len(parts)}")
         if len(parts) >= 5:
             format, total, total_bytes, bytes_per_row, *data_parts = parts
             
-            print(f"GF command parts:")
-            print(f"  format: {format}")
-            print(f"  total: {total}")
-            print(f"  total_bytes: {total_bytes}")
-            print(f"  bytes_per_row: {bytes_per_row}")
-            print(f"  data_parts length: {len(data_parts)}")
+            logger.info(f"GF command parts:")
+            logger.info(f"  format: {format}")
+            logger.info(f"  total: {total}")
+            logger.info(f"  total_bytes: {total_bytes}")
+            logger.info(f"  bytes_per_row: {bytes_per_row}")
+            logger.info(f"  data_parts length: {len(data_parts)}")
             
             full_data = ','.join(data_parts)  # Use ''.join instead of ','.join
             
@@ -161,7 +164,7 @@ def parse_zpl(zpl_data):
             width = bytes_per_row * 8
             height = int(total) // bytes_per_row
 
-            print(f"Calculated dimensions: {width}x{height}")
+            logger.info(f"Calculated dimensions: {width}x{height}")
             
             image_element = ImageElement(
                 state['current_x'],
@@ -172,17 +175,17 @@ def parse_zpl(zpl_data):
                 format
             )
             label.add_element(image_element)
-            print(f"Adding image at position ({state['current_x']}, {state['current_y']}) with size {width}x{height}")
+            logger.info(f"Adding image at position ({state['current_x']}, {state['current_y']}) with size {width}x{height}")
         else:
-            print("Insufficient parameters for GF command")
-            print(f"Received parts: {parts}")
+            logger.warning("Insufficient parameters for GF command")
+            logger.warning(f"Received parts: {parts}")
 
     def handle_fs(parts):
-        print("FS command received - Field Separator")
+        logger.info("FS command received - Field Separator")
         state['reverse_field'] = False  # Reset reverse field after each field
 
     def handle_fr(parts):
-        print("FR command received - Reverse Field mode activated")
+        logger.info("FR command received - Reverse Field mode activated")
         state['reverse_field'] = True
 
     def handle_a0(parts):
@@ -198,29 +201,29 @@ def parse_zpl(zpl_data):
             state['current_font_size'] = font_size
             state['current_font_bold'] = is_bold
             
-            print(f"Font set: size={font_size}, bold={is_bold}")
+            logger.info(f"Font set: size={font_size}, bold={is_bold}")
         else:
-            print("Insufficient parameters for A0 command")
+            logger.warning("Insufficient parameters for A0 command")
 
     def handle_pw(parts):
         if parts:
             width = parts[0].strip()  # Remove leading/trailing whitespace and newlines
             try:
                 width = int(width)
-                print(f"Setting label width to: {width}")
+                logger.info(f"Setting label width to: {width}")
                 state['label_width'] = width
             except ValueError:
-                print(f"Invalid width value for PW command: {width}")
+                logger.warning(f"Invalid width value for PW command: {width}")
         else:
-            print("Insufficient parameters for PW command")
+            logger.warning("Insufficient parameters for PW command")
 
     def handle_ci(parts):
         if parts:
             code_page = parts[0]
-            print(f"Setting code page to: {code_page}")
+            logger.info(f"Setting code page to: {code_page}")
             # You might need to implement code page handling if necessary
         else:
-            print("Insufficient parameters for CI command")
+            logger.warning("Insufficient parameters for CI command")
 
     def split_command(command):
         cmd = command[:2]
@@ -261,7 +264,7 @@ def parse_zpl(zpl_data):
         if cmd in command_handlers:
             command_handlers[cmd](parts[1:])
         else:
-            print(f"Unknown or unhandled command: {cmd}")
+            logger.warning(f"Unknown or unhandled command: {cmd}")
 
     return label
 
@@ -271,16 +274,16 @@ def read_zpl_data(filename):
 
 def main():
     try:
-        print("Script started")
-        print("Entering main function")
+        logger.info("Script started")
+        logger.info("Entering main function")
         
         filename = "zpl_data.txt"
-        print(f"Reading ZPL data from file: {filename}")
+        logger.info(f"Reading ZPL data from file: {filename}")
         
         zpl_data = read_zpl_data(filename)
-        print("ZPL data read successfully:", zpl_data[:100] + "...")
+        logger.info("ZPL data read successfully")
         
-        print("Parsing ZPL data")
+        logger.info("Parsing ZPL data")
         label = parse_zpl(zpl_data)
         
         # After processing all commands and drawing elements
@@ -293,15 +296,12 @@ def main():
         # Assuming 'label' is your Label object
         image = label.render()
         image.save(output_file)
-        print(f"Label saved successfully as: {output_file}")
+        logger.info(f"Label saved successfully as: {output_file}")
     except Exception as e:
-        print(f"An error occurred: {str(e)}")
+        logger.error(f"An error occurred: {str(e)}")
         traceback.print_exc()
 
-    print("Script finished")
+    logger.info("Script finished")
 
 if __name__ == "__main__":
     main()
-
-    
-

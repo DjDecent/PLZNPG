@@ -17,7 +17,7 @@ def optimize_image(image, quality=85, max_size=(800, 1200)):
     """
     # Resize if larger than max_size
     if image.width > max_size[0] or image.height > max_size[1]:
-        image.thumbnail(max_size, Image.Resampling.LANCZOS)
+        image.thumbnail(max_size, Image.Resampling.BILINEAR)
         
     # Convert to RGB if needed (for JPEG)
     if image.mode != 'RGB':

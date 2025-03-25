@@ -1,11 +1,14 @@
 """Graphic-related ZPL command handlers."""
 
 from ..elements.graphic import BoxElement, ImageElement, LineElement
+import logging
+
+logger = logging.getLogger(__name__)
 
 def handle_gb(params, state, label):
     """Handle GB (Graphic Box) command."""
     if len(params) < 3:
-        print("Insufficient parameters for GB command")
+        logger.warning("Insufficient parameters for GB command")
         return
         
     width, height, thickness = map(int, params[:3])
@@ -35,7 +38,7 @@ def handle_gb(params, state, label):
         reverse=state['reverse_field']
     )
     label.add_element(element)
-    print(f"Added box: {width}x{height} at ({state['current_x']}, {state['current_y']})")
+    logger.info(f"Added box: {width}x{height} at ({state['current_x']}, {state['current_y']})")
     
     # Turn off reverse field after use
     state['reverse_field'] = False
@@ -43,7 +46,7 @@ def handle_gb(params, state, label):
 def handle_gf(params, state, label):
     """Handle GF (Graphic Field) command."""
     if len(params) < 5:
-        print("Insufficient parameters for GF command")
+        logger.warning("Insufficient parameters for GF command")
         return
         
     format_type, total, total_bytes, bytes_per_row, *data_parts = params
@@ -66,7 +69,7 @@ def handle_gf(params, state, label):
         format_type
     )
     label.add_element(element)
-    print(f"Added image: {width}x{height} at ({state['current_x']}, {state['current_y']})")
+    logger.info(f"Added image: {width}x{height} at ({state['current_x']}, {state['current_y']})")
 
 def register_graphic_commands(registry):
     """Register all graphic-related command handlers."""

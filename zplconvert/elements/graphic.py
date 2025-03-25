@@ -61,21 +61,15 @@ class BoxElement(BaseElement):
             for i in range(self.thickness):
                 draw.rectangle([self.x + i, self.y + i, self.x + self.width - i, self.y + self.height - i], outline=self.line_color)
 
-            print(f"Drew BoxElement: {self}")
         except Exception as e:
-            print(f"Error drawing BoxElement: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def __str__(self):
         return f"BoxElement(x={self.x}, y={self.y}, width={self.width}, height={self.height}, thickness={self.thickness}, line_color={self.line_color}, fill_color={self.fill_color}, reverse={self.reverse})"
 
     def __repr__(self):
         return self.__str__()
-
-    def _encoder_to_image(self, encoder):
-        # Get the PNG data as bytes
-        png_data = encoder.get_imagedata()
-        # Create a PIL Image from the PNG data
-        return Image.open(BytesIO(png_data))
 
 class LogoElement(BaseElement):
     """Element for rendering logo images on labels."""
@@ -93,12 +87,10 @@ class LogoElement(BaseElement):
                 logo = logo.resize((self.width, self.height))
                 draw._image.paste(logo, (self.x, self.y))
             else:
-                print(f"Warning: Logo file not found: {self.image_path}")
                 # Draw a placeholder
                 draw.rectangle([self.x, self.y, self.x + self.width, self.y + self.height], outline="black")
                 draw.text((self.x + 5, self.y + self.height // 2), "Logo", fill="black")
         except Exception as e:
-            print(f"Error drawing logo: {str(e)}")
             # Draw an error placeholder
             draw.rectangle([self.x, self.y, self.x + self.width, self.y + self.height], outline="red")
             draw.text((self.x + 5, self.y + self.height // 2), "Error", fill="red")
@@ -115,6 +107,7 @@ class ImageElement(BaseElement):
         self.widthBytes = (width + 7) // 8
         self.total = self.widthBytes * height
         self.mapCode = self.initialize_map_code()
+        self._cache = None  # Initialize cache
 
     @staticmethod
     def initialize_map_code():
@@ -127,9 +120,7 @@ class ImageElement(BaseElement):
 
     def gfa_to_image(self):
         hex_data = self.ascii_to_hex(self.image_data)
-        print(f"Hex data:\n{hex_data}")
         binary_data = self.hex_to_binary(hex_data)
-        print(f"Binary data length: {len(binary_data)}")
         image = Image.new('1', (self.width, self.height))
         pixels = image.load()
 
@@ -172,7 +163,6 @@ class ImageElement(BaseElement):
             if padded_line:
                 hex_lines.append(padded_line)
 
-        print(f"ASCII to Hex conversion result:\n{hex_lines}")
         return '\n'.join(hex_lines)
 
     def pad_line(self, line):
@@ -181,16 +171,13 @@ class ImageElement(BaseElement):
         if len(line) > full_line_length:
             # If the line is too long, truncate it
             padded_line = line[:full_line_length]
-            print(f"Truncated line: {padded_line}")
             return padded_line
         elif len(line) < full_line_length:
             # If the line is too short, pad it with '0's
             padded_line = line.ljust(full_line_length, '0')
-            print(f"Padded line: {padded_line}")
             return padded_line
         else:
             # If the line is exactly the right length, return it as is
-            print(f"Exact length line: {line}")
             return line
 
     def hex_to_binary(self, hex_data):
@@ -204,21 +191,17 @@ class ImageElement(BaseElement):
         return binary_data
 
     def draw(self, draw):
-        print(f"Attempting to draw image: format={self.format}, width={self.width}, height={self.height}")
-        print(f"Image data length: {len(self.image_data)}")
-        
+        if self._cache:
+            draw._image.paste(self._cache, (self.x, self.y))
+            return
+
         if self.format == 'A':  # ASCII format
             try:
                 image = self.gfa_to_image()
                 draw._image.paste(image, (self.x, self.y))
-                print(f"Successfully drew image at ({self.x}, {self.y}), size {self.width}x{self.height}")
-                
-                # Save the image for debugging
-                image.save("debug_image.png")
-                print("Saved debug image as 'debug_image.png'")
+                self._cache = image  # Cache the image
             except Exception as e:
-                print(f"Error drawing ImageElement: {str(e)}")
                 import traceback
                 traceback.print_exc()
         else:
-            print(f"Unsupported image format: {self.format}")
+            pass

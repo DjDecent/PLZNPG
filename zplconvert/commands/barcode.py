@@ -5,7 +5,6 @@ from ..elements.text import TextElement
 
 def handle_bc(params, state, label):
     """Handle BC (Barcode Code 128) command."""
-    print(f"Handling BC command with parts: {params}")
     state['expecting_barcode'] = True
     state['barcode_type'] = 'code128'
     
@@ -17,12 +16,9 @@ def handle_bc(params, state, label):
         # Parse parameters if available
         if len(params) > 1 and params[1].strip().isdigit():
             state['barcode_height'] = int(params[1])
-    
-    print(f"Expecting barcode: type={state['barcode_type']}, height={state['barcode_height']}")
 
 def handle_bx(params, state, label):
     """Handle BX (Barcode DataMatrix) command."""
-    print(f"Handling BX command with parts: {params}")
     state['expecting_barcode'] = True
     state['barcode_type'] = 'datamatrix'
     
@@ -38,15 +34,12 @@ def handle_bx(params, state, label):
             state['barcode_width'] = int(params[3])
         if params[4] and params[4].strip().isdigit():
             state['barcode_quality'] = int(params[4])
-    
-    print(f"Expecting DataMatrix: height={state['barcode_height']}, width={state['barcode_width']}, quality={state['barcode_quality']}")
 
 def handle_fd_barcode(params, state, label):
     """Handle FD (Field Data) command for barcodes."""
     if not params:
         # Create a placeholder barcode with dummy data if no data provided
         data = "SAMPLE"
-        print(f"No barcode data provided, using placeholder: {data}")
     else:
         data = params[0]  # The entire field data
     
@@ -74,9 +67,7 @@ def handle_fd_barcode(params, state, label):
         )
         
         label.add_element(barcode_element)
-        print(f"Added barcode: '{data}' at ({state['current_x']}, {state['current_y']})")
     except Exception as e:
-        print(f"Error creating barcode: {str(e)}")
         # Add a fallback text element to show there was an error
         label.add_element(TextElement(
             state['current_x'],
@@ -84,7 +75,6 @@ def handle_fd_barcode(params, state, label):
             f"[Barcode: {data}]",
             font_size=12
         ))
-        print(f"Added fallback text for barcode")
     
     # Reset barcode state regardless of success or failure
     state['expecting_barcode'] = False
@@ -113,13 +103,8 @@ def handle_by(params, state, label):
             state['barcode_width'] = barcode_width
             state['barcode_width_ratio'] = width_ratio
             state['barcode_height'] = barcode_height
-            
-            print(f"Set barcode defaults: width={barcode_width}, ratio={width_ratio}, height={barcode_height}")
         except (ValueError, IndexError) as e:
-            print(f"Error parsing barcode defaults: {str(e)}")
-            print("Using default values")
-    else:
-        print("Set barcode defaults to default values")
+            pass
 
 def register_barcode_commands(registry):
     """Register all barcode-related command handlers."""

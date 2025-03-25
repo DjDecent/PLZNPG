@@ -1,35 +1,4 @@
 import os
-import math
-from io import BytesIO
-from PIL import Image, ImageFont, ImageDraw, ImageOps, ImageColor, ImageFilter
-from barcode import Code128
-from barcode.writer import ImageWriter
-from barcode.charsets import code128
-from pystrich.code128 import Code128Encoder
-from pystrich.datamatrix import DataMatrixEncoder
-
-class Text:
-    def __init__(self, x, y, text, font_size=12, font=None):
-        self.x = x
-        self.y = y
-        self.text = text
-        self.font_size = font_size
-        self.font = font if font else ImageFont.load_default()
-
-    def draw(self, draw: ImageDraw.Draw):
-        draw.text((self.x, self.y), self.text, font=self.font, fill="black")
-
-class BaseElement:
-    def __init__(self, x=0, y=0):
-        self.x = x
-        self.y = y
-
-    def draw(self, draw):
-        pass
-
-"""Text element classes for ZPL conversion."""
-
-import os
 from PIL import Image, ImageFont, ImageDraw
 from .base import BaseElement
 
@@ -44,6 +13,7 @@ class TextElement(BaseElement):
         self.reverse = reverse
         self.rotation = rotation
         self.font_path = self._get_font_path()
+        self._cache = None  # Initialize cache
 
     def _get_font_path(self):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -52,6 +22,10 @@ class TextElement(BaseElement):
         return font_path
 
     def draw(self, draw):
+        if self._cache:
+            draw._image.paste(self._cache, (self.x, self.y))
+            return
+
         try:
             font = ImageFont.truetype(self.font_path, self.font_size)
             text_color = (255, 255, 255) if self.reverse else (0, 0, 0)
@@ -102,10 +76,8 @@ class TextElement(BaseElement):
                                font=font, fill=text_color, anchor="mm")
                 rotated = temp_img.rotate(90, expand=True, resample=Image.BICUBIC)
                 draw._image.paste(rotated, (self.x - padding, self.y - padding), rotated)
-                print(f"Drew text: '{self.text}' at ({self.x}, {self.y}) with rotation {self.rotation}°")
-                print(f"Drew text: '{self.text}' at ({self.x}, {self.y}) with rotation {self.rotation}°")
+            
+            self._cache = temp_img  # Cache the rendered text image
         except Exception as e:
-            print(f"Error drawing TextElement: {str(e)}")
             import traceback
             traceback.print_exc()
-

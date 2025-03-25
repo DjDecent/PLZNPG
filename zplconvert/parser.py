@@ -2,6 +2,7 @@
 
 from .label import Label
 from .commands import create_command_registry
+from .optimizer import optimize_zpl
 
 def parse_zpl(zpl_data, width=850, height=1200, dpi=203):
     """Parse ZPL data and return a Label object.
@@ -15,6 +16,9 @@ def parse_zpl(zpl_data, width=850, height=1200, dpi=203):
     Returns:
         Label: The populated label object
     """
+    # Optimize ZPL data before parsing
+    zpl_data = optimize_zpl(zpl_data)
+    
     # Create a new label
     label = Label(width, height, dpi)
     

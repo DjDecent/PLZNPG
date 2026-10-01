@@ -1,6 +1,7 @@
 Pillow
 python-barcode
-pystrich
+pystrich>=0.20,<0.21
+qrcodegen==1.8.0
 Flask
 flask-cors
 gunicorn

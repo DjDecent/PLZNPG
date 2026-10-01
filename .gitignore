@@ -1,0 +1,40 @@
+# Python environments, bytecode, and build/test caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local credentials and configuration
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+/Settings
+*.log
+
+# Local render output and reference material
+/output.png
+/ZPLII-Prog.pdf
+/compare_zpl.txt
+/comparisons/
+/tests/test_reference_comparisons.py
+*[Ll][Aa][Bb][Ee][Ll][Aa][Rr][Yy]*

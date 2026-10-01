@@ -4,65 +4,55 @@ from .label import Label
 from .commands import create_command_registry
 from .optimizer import optimize_zpl
 
-def parse_zpl(zpl_data, width=850, height=1200, dpi=203):
-    """Parse ZPL data and return a Label object.
-    
-    Args:
-        zpl_data (str): ZPL commands as text
-        width (int): Width of the label in pixels
-        height (int): Height of the label in pixels
-        dpi (int): Dots per inch resolution
-        
-    Returns:
-        Label: The populated label object
-    """
-    # Optimize ZPL data before parsing
+
+def parse_zpl(zpl_data, width=812, height=1218, dpi=203):
+    """Parse ZPL data and return a Label object."""
     zpl_data = optimize_zpl(zpl_data)
-    
-    # Create a new label
+
     label = Label(width, height, dpi)
-    
-    # Create a command registry
     registry = create_command_registry()
-    
-    # Initialize state
+
     state = {
         'current_x': 0,
         'current_y': 0,
         'current_font_size': 12,
+        'current_font_width': 12,
         'reverse_field': False,
-        'current_font_bold': False,
+        'current_font_bold': True,
         'current_rotation': 0,
+        'origin_mode': 'FO',
         'expecting_barcode': False,
         'barcode_type': None,
-        'barcode_height': None,
-        'barcode_width': None,
+        'barcode_height': 100,
+        'barcode_width': 300,
         'barcode_width_ratio': 3.0,
+        'module_width': 2,
+        'barcode_module_size': 10,
+        'barcode_quality': 200,
+        'print_width': width,
+        'label_length': height,
     }
-    
-    # Parse ZPL commands
+
     commands = zpl_data.strip().split('^')
     for command in commands:
-        if not command or command.startswith('XZ'):  # Empty or end of file
+        if not command or command.startswith('XZ'):
             continue
-            
-        # Extract command and parameters
+
         cmd = command[:2]
-        params = []
-        
         if cmd == 'FD':
-            # For FD command, keep everything after 'FD' as a single string
             params = [command[2:]]
         else:
-            # For other commands, split by comma
             params = command[2:].split(',')
-        
-        # Special handling for FD command when expecting a barcode
+
         if cmd == 'FD' and state.get('expecting_barcode'):
             registry.handle('FD_BARCODE', params, state, label)
         else:
-            # Handle the command
             if not registry.handle(cmd, params, state, label):
-                print(f"Unknown or unhandled command: {cmd}")
-    
+                # Silently ignore known no-ops; warn on others
+                if cmd not in ('CI', 'PQ', 'LH', 'LT', 'LS', 'PR', 'MD', 'MM', 'JZ', 'PO'):
+                    print(f"Unknown or unhandled command: {cmd}")
+
+    # Media dimensions belong to the requested canvas. Fields outside it clip.
+    label.width, label.height = width, height
+
     return label
